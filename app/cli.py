@@ -1,7 +1,7 @@
-from app.pdf_reader import PDFReader
-from app.search import simple_search
+from app.search import multi_search
+from app.query_utils import extract_search_terms
 from app.answer import answer_with_citation
-
+from app.pdf_reader import PDFReader
 
 def run_cli(pdf_path: str = "data/ds024.pdf"):
     print("\n[MIP] Loading document...")
@@ -33,7 +33,10 @@ def run_cli(pdf_path: str = "data/ds024.pdf"):
             continue
 
         # Search + answer
-        results = simple_search(text, user_q, window=650)
+        terms = extract_search_terms(user_q)
+        print(f"\n[MIP] Search terms: {terms}")
+
+        results = multi_search(text, terms, window=650)
         ans = answer_with_citation(user_q, results)
 
         print("\n=== RESPUESTA ===")
