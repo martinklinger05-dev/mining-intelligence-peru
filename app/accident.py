@@ -59,23 +59,57 @@ def generate_accident_report(description: str, ds024_text: str) -> dict:
     results = multi_search(ds024_text, terms, window=900)
     ans = answer_with_citation(" ".join(preset_queries), results)
 
-    conclusion = (
-        "CONCLUSIÓN TÉCNICA:\n\n"
-        f"Del análisis del evento descrito, se identifica como acto subestándar: {acto}.\n"
-        f"Asimismo, se determina como condición subestándar: {condicion}.\n\n"
-        "De acuerdo con el DS 024-2016-EM, se sustenta la necesidad de controlar los riesgos "
-        "mediante identificación/gestión y medidas de control, así como el retiro ante peligro alto riesgo "
-        "cuando corresponda. Evidencia:\n"
-        f"{ans.response}\n"
-    )
+    # Heurísticas simples para consecuencias
+    d = description.lower()
+    consequence = "Daños materiales y/o condición de riesgo operacional. Sin información de lesiones."
+    if "sin lesion" in d or "no lesion" in d or "sin lesiones" in d:
+        consequence = "Daños materiales. No se reportan lesiones al personal."
+    if "lesion" in d and ("si" in d or "hubo" in d):
+        consequence = "Evento con lesión(es) reportada(s)."
 
-    recommendations = (
-        "RECOMENDACIONES:\n\n"
-        "1. Reforzar capacitación y evaluación en conducción defensiva y control de velocidad (incluye maniobras en rampa/curva).\n"
-        "2. Asegurar cumplimiento de señalización obligatoria (PARE) con detención completa y verificación de hábitos operativos.\n"
-        "3. Implementar inspección preventiva de condiciones de vía (humedad, material suelto) y comunicar alertas operacionales.\n"
-        "4. Establecer supervisión en puntos críticos (intersecciones/BP) y reforzar IPERC continuo antes de maniobras.\n"
-        "5. Registrar el evento y retroalimentar el PETS/estándar de tránsito interno (lecciones aprendidas).\n"
+    # Causa inmediata (heurística)
+    causa_inmediata = "Pérdida de control por maniobra y/o control de velocidad no adecuado a la condición de la vía."
+    if "humed" in d or "húmed" in d:
+        causa_inmediata = "Pérdida de adherencia neumático–superficie por humedad, sumado a maniobra/velocidad no adecuada."
+    if "pare" in d:
+        causa_inmediata = "Ejecución de maniobra sin detención completa (PARE) y control de velocidad no adecuado al tramo."
+
+    # 5 porqués simplificado (plantilla)
+    cinco_porques = [
+        "1) ¿Por qué ocurrió el evento? Porque se ejecutó la maniobra sin control adecuado (PARE/velocidad) en una zona de mayor riesgo.",
+        "2) ¿Por qué no hubo control adecuado? Porque no se aplicó el estándar/procedimiento de tránsito interno y conducción defensiva.",
+        "3) ¿Por qué no se aplicó el estándar? Por brecha de disciplina operativa y/o supervisión en puntos críticos.",
+        "4) ¿Por qué existe esa brecha? Por capacitación/validación insuficiente y controles preventivos no consistentes.",
+        "5) ¿Por qué los controles no son consistentes? Porque falta reforzar el sistema de gestión (IPERC continuo, verificación en campo, retroalimentación de PETS/estándares).",
+    ]
+
+    informe = (
+        "INFORME DE INVESTIGACIÓN – BORRADOR AUTOMÁTICO (MIP)\n\n"
+        "1. RESUMEN DEL EVENTO\n"
+        f"{description.strip()}\n\n"
+        "2. HALLAZGO CLAVE\n"
+        f"El evento se asocia a {acto.lower()} en presencia de {condicion.lower()}.\n\n"
+        "3. CLASIFICACIÓN\n"
+        f"Acto subestándar: {acto}\n"
+        f"Condición subestándar: {condicion}\n"
+        f"Consecuencia: {consequence}\n\n"
+        "4. CAUSA INMEDIATA (PROBABLE)\n"
+        f"{causa_inmediata}\n\n"
+        "5. CAUSA RAÍZ (5 POR QUÉS – PRELIMINAR)\n"
+        + "\n".join(cinco_porques) + "\n\n"
+        "6. SUSTENTO NORMATIVO (DS 024-2016-EM)\n"
+        f"{ans.response}\n\n"
+        "7. ACCIONES CORRECTIVAS / PREVENTIVAS (PROPUESTA)\n"
+        "1) Reentrenamiento y evaluación en conducción defensiva y control de velocidad (incluye rampas/curvas). "
+        "Responsable: Supervisor de Operaciones / SSOMA. Plazo: 7 días.\n"
+        "2) Verificación del cumplimiento de señalización PARE (detención completa) en puntos críticos. "
+        "Responsable: Supervisión / Vigías. Plazo: inmediato y continuo.\n"
+        "3) Inspección y reporte de condiciones de vía (humedad/material suelto), con medidas de control (señalización temporal, riego/control, restricción). "
+        "Responsable: Operaciones / Mantenimiento de Vías. Plazo: 48 horas.\n"
+        "4) Reforzar IPERC continuo antes de maniobras y en cambios de condición (humedad/visibilidad). "
+        "Responsable: Todos los trabajadores + Supervisor. Plazo: inmediato.\n"
+        "5) Actualizar/retroalimentar PETS/estándar de tránsito interno con lecciones aprendidas del evento. "
+        "Responsable: SSOMA / Operaciones. Plazo: 14 días.\n"
     )
 
     return {
@@ -83,7 +117,7 @@ def generate_accident_report(description: str, ds024_text: str) -> dict:
         "description": description,
         "acto_subestandar": acto,
         "condicion_subestandar": condicion,
-        "conclusion": conclusion.strip(),
-        "recommendations": recommendations.strip(),
+        "conclusion": informe.strip(),
+        "recommendations": "",  # ya está dentro del informe
         "normative_support": ans.response,
     }
