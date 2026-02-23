@@ -14,15 +14,18 @@ class Answer:
     evidence: str
 
 
-def _make_summary_from_snippet(snippet: str) -> str:
+def _make_summary_from_snippet(snippet: str, query: str) -> str:
     clean = " ".join(snippet.replace("\n", " ").split())
+    q = query.lower()
 
-    # DEBUG marker: if you see "[SUMMARY_V2]" printed, you're running the updated function
-    # (remove later if you want)
+    # If question is about EPP, try to start at Article 81
+    if "epp" in q:
+        m81 = re.search(r"(Artículo\s+81\s*[-\.]\s*)(.*)", clean, flags=re.IGNORECASE)
+        if m81:
+            clean = m81.group(2).strip()
 
+    # Prefer starting at withdrawal clause if present
     lower = clean.lower()
-
-    # Prefer starting at the "retirarse..." clause if present
     key_phrases = [
         "d) retirarse de cualquier área de trabajo",
         "d) retirarse de cualquier area de trabajo",
@@ -36,17 +39,13 @@ def _make_summary_from_snippet(snippet: str) -> str:
     if positions:
         start = min(positions)
         clean = clean[start:]
-    else:
-        # fallback to article body
-        m = re.search(r"(Artículo\s+\d+\s*[-\.]\s*)(.*)", clean, flags=re.IGNORECASE)
-        if m:
-            clean = m.group(2).strip()
-            
+
     # If another article starts, cut before it
     cut = re.search(r"\bArtículo\s+\d+", clean, flags=re.IGNORECASE)
     if cut and cut.start() > 0:
         clean = clean[:cut.start()].strip()
 
+    # Limit length
     if len(clean) > 420:
         clean = clean[:420].rsplit(" ", 1)[0] + "..."
 
@@ -68,9 +67,8 @@ def answer_with_citation(query: str, results: list[SearchResult]) -> Answer:
     article = extract_article(top, query=query)
     chapter, chapter_title = extract_chapter(top)
 
-    summary = _make_summary_from_snippet(top)
+    summary = _make_summary_from_snippet(top, query)
 
-    # Armado de respuesta con cita
     prefix = "Según el DS 024-2016-EM"
     if chapter and chapter_title:
         prefix += f" (Capítulo {chapter}: {chapter_title})"
