@@ -11,6 +11,12 @@ from app.query_utils import extract_search_terms
 from app.answer import answer_with_citation
 from app.pdf_reader import PDFReader
 
+def prompt_or_cancel(label: str) -> str | None:
+    v = input(label).strip()
+    if v.lower() in ("/exit", "exit", "/salir", "salir", "/cancel", "cancel", "/cancelar", "cancelar"):
+        return None
+    return v
+
 def run_cli(pdf_path: str = "data/ds024.pdf"):
     print("\n[MIP] Loading document...")
     pdf = PDFReader(pdf_path)
@@ -20,6 +26,7 @@ def run_cli(pdf_path: str = "data/ds024.pdf"):
     print("\n[MIP] Ready. Type your question. Commands: /exit, /help\n")
     last_record = None
     last_report = None
+    last_word_path = None
     while True:
         user_q = input("> ").strip()
         if not user_q:
@@ -43,6 +50,7 @@ def run_cli(pdf_path: str = "data/ds024.pdf"):
             print("  ¿Qué indica sobre IPERC?")
             print()
             print("  /export-word - export last accident report to Word (.docx)")
+            print("  /open-word  - open last exported Word (Windows)")
             continue
 
         if cmd in ("/history", "history", "/historial", "historial"):
@@ -68,8 +76,19 @@ def run_cli(pdf_path: str = "data/ds024.pdf"):
 
             from app.word_export import export_accident_report_to_docx
             path = export_accident_report_to_docx(last_report)
+            last_word_path = path
             print(f"\n[MIP] Word exportado a: {path}\n")
             print(f"[MIP] Tip: para abrirlo rápido en Windows: start {path}")
+            continue
+
+        if cmd in ("/open-word", "open-word", "/abrir-word", "abrir-word"):
+            if not last_word_path:
+                print("\n[MIP] No hay Word exportado aún. Ejecuta /export-word primero.\n")
+                continue
+
+            import os
+            os.system(f'start "" "{last_word_path}"')
+            print(f"\n[MIP] Abriendo: {last_word_path}\n")
             continue
 
         if cmd in ("/export", "export", "/exportar", "exportar"):
@@ -82,23 +101,78 @@ def run_cli(pdf_path: str = "data/ds024.pdf"):
             continue
 
         if cmd in ("/accidente", "accidente", "/accident", "accident"):
-            print("\n[MIP] MODO INFORME DE ACCIDENTE")
-            print("Describe el evento (qué pasó, dónde, qué equipo, condición de vía, etc.).")
-            description = input(">> ").strip()
+            print("\n[MIP] MODO INFORME DE ACCIDENTE (FORMATO MINA)")
 
+            equipo = prompt_or_cancel("Equipo (ej. Volquete DCR-21): ")
+            if equipo is None:
+                print("\n[MIP] Formulario cancelado.\n")
+                continue
+
+            area = prompt_or_cancel("Área / Labor (ej. NV 4300 / RP +6000): ")
+            if area is None:
+                print("\n[MIP] Formulario cancelado.\n")
+                continue
+
+            turno = prompt_or_cancel("Turno (Día/Noche): ")
+            if turno is None:
+                print("\n[MIP] Formulario cancelado.\n")
+                continue
+            
+            fecha_evento = prompt_or_cancel("Fecha y hora del evento (YYYY-MM-DD HH:MM) [Enter = ahora]: ")
+            if fecha_evento is None:
+                print("\n[MIP] Formulario cancelado.\n")
+                continue
+            if not fecha_evento:
+                fecha_evento = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+            lesiones = prompt_or_cancel("¿Hubo lesiones? (si/no): ")
+            if lesiones is None:
+                print("\n[MIP] Formulario cancelado.\n")
+                continue
+            lesiones = lesiones.lower()
+
+            danio = prompt_or_cancel("Tipo de daño (material/personal/ambos/ninguno): ")
+            if danio is None:
+                print("\n[MIP] Formulario cancelado.\n")
+                continue
+            danio = danio.lower()
+
+            descripcion = prompt_or_cancel("Describe el evento (qué pasó, dónde, condiciones, maniobra, etc.): ")
+            if descripcion is None:
+                print("\n[MIP] Formulario cancelado.\n")
+                continue
+            
             print("\n¿Hubo lesiones? (si/no)")
             injury = input(">> ").strip().lower()
 
             print("\nTipo de daño: (material / personal / ambos / ninguno)")
             damage_type = input(">> ").strip().lower()
 
+            print("\nDescribe el evento (qué pasó, dónde, condiciones, maniobra, etc.):")
+            description = input(">> ").strip()
+
             full_desc = (
-                f"Evento: {description}. "
-                f"Lesiones: {injury}. "
-                f"Daño: {damage_type}."
+                f"Evento: {descripcion}. "
+                f"Equipo: {equipo}. "
+                f"Área: {area}. "
+                f"Turno: {turno}. "
+                f"Fecha evento: {fecha_evento}. "
+                f"Lesiones: {lesiones}. "
+                f"Daño: {danio}."
             )
 
             report = generate_accident_report(full_desc, text)
+
+            # Guardar metadata para Word
+            report["meta"] = {
+                "equipo": equipo,
+                "area": area,
+                "turno": turno,
+                "fecha_evento": fecha_evento,
+                "lesiones": lesiones,
+                "danio": danio,
+            }
+
             last_report = report
             print("\n=== INFORME GENERADO ===")
             print(report["conclusion"])
