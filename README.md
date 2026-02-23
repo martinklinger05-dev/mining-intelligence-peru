@@ -2,7 +2,7 @@
 
 AI platform specialized in Peruvian underground mining regulations, safety systems, and technical report automation.
 
-Founder: Antony Zevallos  
+Founder: Martin Klinger
 Location: Peru  
 Start Year: 2026
 
