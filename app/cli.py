@@ -89,7 +89,7 @@ def run_cli(pdf_path: str = "data/ds024.pdf"):
 
             print("\n=== INFORME GENERADO ===")
             print(report["conclusion"])
-            print("\n" + report["recommendations"] + "\n")
+            print()
 
             last_record = {
                 "timestamp": report["timestamp"],
