@@ -27,6 +27,11 @@ def main():
     print("\n=== EVIDENCE (snippet) ===")
     print(ans.evidence)
 
+    print("\n=== CHAPTER DETECTED ===")
+    print(ans.chapter)
+
+    print("\n=== CHAPTER TITLE ===")
+    print(ans.chapter_title)
 
 if __name__ == "__main__":
     main()

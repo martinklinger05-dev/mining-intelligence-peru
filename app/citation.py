@@ -25,3 +25,20 @@ def extract_article(snippet: str, query: str | None = None) -> str | None:
 
     # fallback: choose the last one (often the relevant one later in snippet)
     return matches[-1][1]
+import re
+
+
+def extract_chapter(snippet: str) -> tuple[str | None, str | None]:
+    """
+    Finds 'CAPÍTULO VIII   <TITLE>' and returns (roman_numeral, title).
+    Title is returned trimmed (may include '(EPP)').
+    """
+    # Allow both "CAPÍTULO" and "CAPITULO" (sin tilde)
+    pattern = r"CAP[IÍ]TULO\s+([IVXLCDM]+)\s+(.+?)(?=Artículo\s+\d+|$)"
+    m = re.search(pattern, snippet, flags=re.IGNORECASE | re.DOTALL)
+    if not m:
+        return None, None
+
+    roman = m.group(1).upper().strip()
+    title = " ".join(m.group(2).split())  # compact spaces/newlines
+    return roman, title
