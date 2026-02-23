@@ -1,4 +1,5 @@
 from datetime import datetime
+
 from app.answer import answer_with_citation
 from app.search import multi_search
 from app.query_utils import extract_search_terms
@@ -38,6 +39,7 @@ def generate_accident_report(description: str, ds024_text: str) -> dict:
     Generates structured accident report using DS024 support.
     Uses 'smart' preset queries for accident investigations (not just raw description).
     """
+    d = description.lower()
 
     acto, condicion = _detect_act_condition(description)
 
@@ -51,7 +53,6 @@ def generate_accident_report(description: str, ds024_text: str) -> dict:
         "supervisor verificar cumplimiento de estándares PETS y uso de EPP",
     ]
 
-    # Also include some extracted keywords from description (but keep them limited)
     extracted = extract_search_terms(description)[:8]
 
     # Multi-search on DS024
@@ -59,28 +60,55 @@ def generate_accident_report(description: str, ds024_text: str) -> dict:
     results = multi_search(ds024_text, terms, window=900)
     ans = answer_with_citation(" ".join(preset_queries), results)
 
-    # Heurísticas simples para consecuencias
-    d = description.lower()
-    consequence = "Daños materiales y/o condición de riesgo operacional. Sin información de lesiones."
-    if "sin lesion" in d or "no lesion" in d or "sin lesiones" in d:
+    # Consecuencia (corrige 'no lesionado')
+    consequence = "Daños materiales y/o condición de riesgo operacional."
+    if "no lesion" in d or "sin lesion" in d or "no lesionado" in d or "operador no lesionado" in d or "sin lesiones" in d:
         consequence = "Daños materiales. No se reportan lesiones al personal."
-    if "lesion" in d and ("si" in d or "hubo" in d):
+    elif "lesion" in d or "lesión" in d:
         consequence = "Evento con lesión(es) reportada(s)."
 
     # Causa inmediata (heurística)
     causa_inmediata = "Pérdida de control por maniobra y/o control de velocidad no adecuado a la condición de la vía."
-    if "humed" in d or "húmed" in d:
+    if "humed" in d or "húmed" in d or "mojad" in d:
         causa_inmediata = "Pérdida de adherencia neumático–superficie por humedad, sumado a maniobra/velocidad no adecuada."
     if "pare" in d:
         causa_inmediata = "Ejecución de maniobra sin detención completa (PARE) y control de velocidad no adecuado al tramo."
 
-    # 5 porqués simplificado (plantilla)
+    # 5 porqués simplificado
     cinco_porques = [
         "1) ¿Por qué ocurrió el evento? Porque se ejecutó la maniobra sin control adecuado (PARE/velocidad) en una zona de mayor riesgo.",
         "2) ¿Por qué no hubo control adecuado? Porque no se aplicó el estándar/procedimiento de tránsito interno y conducción defensiva.",
         "3) ¿Por qué no se aplicó el estándar? Por brecha de disciplina operativa y/o supervisión en puntos críticos.",
         "4) ¿Por qué existe esa brecha? Por capacitación/validación insuficiente y controles preventivos no consistentes.",
         "5) ¿Por qué los controles no son consistentes? Porque falta reforzar el sistema de gestión (IPERC continuo, verificación en campo, retroalimentación de PETS/estándares).",
+    ]
+
+    actions = [
+        {
+            "accion": "Reentrenamiento y evaluación en conducción defensiva y control de velocidad (rampas/curvas).",
+            "responsable": "Supervisor de Operaciones / SSOMA",
+            "plazo": "7 días",
+        },
+        {
+            "accion": "Verificación del cumplimiento de señalización PARE (detención completa) en puntos críticos.",
+            "responsable": "Supervisión / Vigías",
+            "plazo": "Inmediato y continuo",
+        },
+        {
+            "accion": "Inspección y reporte de condiciones de vía (humedad/material suelto) y medidas de control.",
+            "responsable": "Operaciones / Mantenimiento de Vías",
+            "plazo": "48 horas",
+        },
+        {
+            "accion": "Reforzar IPERC continuo antes de maniobras y ante cambios de condición.",
+            "responsable": "Todos + Supervisor",
+            "plazo": "Inmediato",
+        },
+        {
+            "accion": "Actualizar PETS/estándar de tránsito interno con lecciones aprendidas del evento.",
+            "responsable": "SSOMA / Operaciones",
+            "plazo": "14 días",
+        },
     ]
 
     informe = (
@@ -96,20 +124,11 @@ def generate_accident_report(description: str, ds024_text: str) -> dict:
         "4. CAUSA INMEDIATA (PROBABLE)\n"
         f"{causa_inmediata}\n\n"
         "5. CAUSA RAÍZ (5 POR QUÉS – PRELIMINAR)\n"
-        + "\n".join(cinco_porques) + "\n\n"
+        + "\n".join(cinco_porques)
+        + "\n\n"
         "6. SUSTENTO NORMATIVO (DS 024-2016-EM)\n"
         f"{ans.response}\n\n"
         "7. ACCIONES CORRECTIVAS / PREVENTIVAS (PROPUESTA)\n"
-        "1) Reentrenamiento y evaluación en conducción defensiva y control de velocidad (incluye rampas/curvas). "
-        "Responsable: Supervisor de Operaciones / SSOMA. Plazo: 7 días.\n"
-        "2) Verificación del cumplimiento de señalización PARE (detención completa) en puntos críticos. "
-        "Responsable: Supervisión / Vigías. Plazo: inmediato y continuo.\n"
-        "3) Inspección y reporte de condiciones de vía (humedad/material suelto), con medidas de control (señalización temporal, riego/control, restricción). "
-        "Responsable: Operaciones / Mantenimiento de Vías. Plazo: 48 horas.\n"
-        "4) Reforzar IPERC continuo antes de maniobras y en cambios de condición (humedad/visibilidad). "
-        "Responsable: Todos los trabajadores + Supervisor. Plazo: inmediato.\n"
-        "5) Actualizar/retroalimentar PETS/estándar de tránsito interno con lecciones aprendidas del evento. "
-        "Responsable: SSOMA / Operaciones. Plazo: 14 días.\n"
     )
 
     return {
@@ -118,6 +137,9 @@ def generate_accident_report(description: str, ds024_text: str) -> dict:
         "acto_subestandar": acto,
         "condicion_subestandar": condicion,
         "conclusion": informe.strip(),
-        "recommendations": "",  # ya está dentro del informe
         "normative_support": ans.response,
+        "consequence": consequence,
+        "causa_inmediata": causa_inmediata,
+        "cinco_porques": cinco_porques,
+        "actions": actions,
     }

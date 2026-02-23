@@ -19,6 +19,7 @@ def run_cli(pdf_path: str = "data/ds024.pdf"):
 
     print("\n[MIP] Ready. Type your question. Commands: /exit, /help\n")
     last_record = None
+    last_report = None
     while True:
         user_q = input("> ").strip()
         if not user_q:
@@ -41,6 +42,7 @@ def run_cli(pdf_path: str = "data/ds024.pdf"):
             print("  ¿Qué dice el DS 024 sobre EPP?")
             print("  ¿Qué indica sobre IPERC?")
             print()
+            print("  /export-word - export last accident report to Word (.docx)")
             continue
 
         if cmd in ("/history", "history", "/historial", "historial"):
@@ -57,6 +59,16 @@ def run_cli(pdf_path: str = "data/ds024.pdf"):
                 t = it.get("timestamp", "")
                 print(f"{i}. [{t}] Art:{art} Cap:{chap} | {q}")
             print()
+            continue
+
+        if cmd in ("/export-word", "export-word", "/word", "word", "/exportar-word", "exportar-word"):
+            if not last_report:
+                print("\n[MIP] No hay informe de accidente para exportar. Ejecuta /accidente primero.\n")
+                continue
+
+            from app.word_export import export_accident_report_to_docx
+            path = export_accident_report_to_docx(last_report)
+            print(f"\n[MIP] Word exportado a: {path}\n")
             continue
 
         if cmd in ("/export", "export", "/exportar", "exportar"):
@@ -86,7 +98,7 @@ def run_cli(pdf_path: str = "data/ds024.pdf"):
             )
 
             report = generate_accident_report(full_desc, text)
-
+            last_report = report
             print("\n=== INFORME GENERADO ===")
             print(report["conclusion"])
             print()
