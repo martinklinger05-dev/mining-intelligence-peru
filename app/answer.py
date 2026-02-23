@@ -51,7 +51,6 @@ def _make_summary_from_snippet(snippet: str, query: str) -> str:
 
     return clean.strip()
 
-
 def answer_with_citation(query: str, results: list[SearchResult]) -> Answer:
     if not results:
         return Answer(
@@ -68,6 +67,11 @@ def answer_with_citation(query: str, results: list[SearchResult]) -> Answer:
     chapter, chapter_title = extract_chapter(top)
 
     summary = _make_summary_from_snippet(top, query)
+
+    # normalize weird split words/spaces from PDF extraction (on summary)
+    summary = re.sub(r"\s+", " ", summary)
+    summary = summary.replace("acc esos", "accesos")
+    summary = summary.replace("pre establecidos", "preestablecidos")
 
     prefix = "Según el DS 024-2016-EM"
     if chapter and chapter_title:
