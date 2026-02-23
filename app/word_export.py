@@ -38,12 +38,16 @@ def export_accident_report_to_docx(report: dict[str, Any]) -> str:
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     # Header metadata (mine style)
-    doc.add_paragraph(f"Fecha de emisión: {datetime.now().strftime('%Y-%m-%d')}")
-    doc.add_paragraph("Área: __________________________")
-    doc.add_paragraph("Unidad / Nivel: __________________________")
+    meta = report.get("meta", {})
+
+    doc.add_paragraph(f"Área / Labor: {meta.get('area', '__________________________')}")
+    doc.add_paragraph(f"Equipo: {meta.get('equipo', '__________________________')}")
+    doc.add_paragraph(f"Turno: {meta.get('turno', '__________________________')}")
+    doc.add_paragraph(f"Fecha/Hora del evento: {meta.get('fecha_evento', '__________________________')}")
+    doc.add_paragraph(f"Lesiones: {meta.get('lesiones', '__________________________')}")
+    doc.add_paragraph(f"Tipo de daño: {meta.get('danio', '__________________________')}")
     doc.add_paragraph("Supervisor Responsable: __________________________")
     doc.add_paragraph("Código de Informe: __________________________")
-    doc.add_paragraph("")
 
     # Sections (structured if available)
     doc.add_heading("1. RESUMEN DEL EVENTO", level=2)
@@ -86,7 +90,7 @@ def export_accident_report_to_docx(report: dict[str, Any]) -> str:
         hdr[2].text = "Responsable"
         hdr[3].text = "Plazo"
         table.style = "Table Grid"
-        
+
         for i, a in enumerate(actions, 1):
             row = table.add_row().cells
             row[0].text = str(i)
