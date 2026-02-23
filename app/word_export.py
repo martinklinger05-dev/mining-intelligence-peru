@@ -85,7 +85,8 @@ def export_accident_report_to_docx(report: dict[str, Any]) -> str:
         hdr[1].text = "Acción"
         hdr[2].text = "Responsable"
         hdr[3].text = "Plazo"
-
+        table.style = "Table Grid"
+        
         for i, a in enumerate(actions, 1):
             row = table.add_row().cells
             row[0].text = str(i)

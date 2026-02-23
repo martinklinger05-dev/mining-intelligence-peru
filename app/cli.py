@@ -69,6 +69,7 @@ def run_cli(pdf_path: str = "data/ds024.pdf"):
             from app.word_export import export_accident_report_to_docx
             path = export_accident_report_to_docx(last_report)
             print(f"\n[MIP] Word exportado a: {path}\n")
+            print(f"[MIP] Tip: para abrirlo rápido en Windows: start {path}")
             continue
 
         if cmd in ("/export", "export", "/exportar", "exportar"):
