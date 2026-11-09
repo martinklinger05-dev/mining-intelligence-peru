@@ -1,90 +1,50 @@
-from dataclasses import dataclass
-import re
+"""Formato de respuestas: cita completa, estado de modificación y fragmento de evidencia."""
+from __future__ import annotations
 
-from app.search import SearchResult
-from app.citation import extract_article, extract_chapter
-
-
-@dataclass
-class Answer:
-    response: str
-    article: str | None
-    chapter: str | None
-    chapter_title: str | None
-    evidence: str
+from app import VALIDITY_NOTICE
+from app.regulation import Unit
+from app.search import Hit
 
 
-def _make_summary_from_snippet(snippet: str, query: str) -> str:
-    clean = " ".join(snippet.replace("\n", " ").split())
-    q = query.lower()
+def citation(unit: Unit) -> str:
+    parts = ["DS 024-2016-EM"]
+    if unit.title:
+        if unit.kind == "anexo":
+            parts.append(unit.title.title() if unit.title.isupper() else unit.title)
+        else:
+            parts.append(f"Título {unit.title}")
+    if unit.chapter:
+        name = (unit.chapter_name or "").capitalize()
+        parts.append(f"Capítulo {unit.chapter}" + (f" ({name})" if name else ""))
+    if unit.subchapter:
+        parts.append(f"Subcapítulo {unit.subchapter}" + (f" ({unit.subchapter_name})" if unit.subchapter_name else ""))
+    parts.append(unit.label)
+    return ", ".join(parts)
 
-    # If question is about EPP, try to start at Article 81
-    if "epp" in q:
-        m81 = re.search(r"(Artículo\s+81\s*[-\.]\s*)(.*)", clean, flags=re.IGNORECASE)
-        if m81:
-            clean = m81.group(2).strip()
 
-    # Prefer starting at withdrawal clause if present
-    lower = clean.lower()
-    key_phrases = [
-        "d) retirarse de cualquier área de trabajo",
-        "d) retirarse de cualquier area de trabajo",
-        "retirarse de cualquier área de trabajo",
-        "retirarse de cualquier area de trabajo",
-        "peligro de alto riesgo",
-        "dando aviso inmediato a sus superiores",
-    ]
+def amendment_note(unit: Unit) -> str:
+    if not unit.amendments:
+        return "Sin modificaciones registradas en el texto incluido."
+    notes = "; ".join(f"{a['action']} por {a['decree']} ({a['date']})" for a in unit.amendments)
+    shown = " Se muestra el texto modificado." if unit.original_text else ""
+    return f"{notes[0].upper()}{notes[1:]}.{shown}"
 
-    positions = [lower.find(k) for k in key_phrases if lower.find(k) != -1]
-    if positions:
-        start = min(positions)
-        clean = clean[start:]
 
-    # If another article starts, cut before it
-    cut = re.search(r"\bArtículo\s+\d+", clean, flags=re.IGNORECASE)
-    if cut and cut.start() > 0:
-        clean = clean[:cut.start()].strip()
+def format_hits(query: str, hits: list[Hit]) -> str:
+    if not hits:
+        return (f"No se encontraron artículos relacionados con: {query}\n"
+                "Pruebe con otras palabras (por ejemplo, el nombre del tema o la sigla: EPP, IPERC, PETAR).")
+    lines = [f"Artículos más relacionados con: {query}", ""]
+    for n, hit in enumerate(hits, 1):
+        lines += [f"[{n}] {citation(hit.unit)}",
+                  f"    Estado: {amendment_note(hit.unit)}",
+                  f"    {hit.passage}", ""]
+    lines.append("Use /ver N para leer el texto completo. " + VALIDITY_NOTICE)
+    return "\n".join(lines)
 
-    # Limit length
-    if len(clean) > 420:
-        clean = clean[:420].rsplit(" ", 1)[0] + "..."
 
-    return clean.strip()
-
-def answer_with_citation(query: str, results: list[SearchResult]) -> Answer:
-    if not results:
-        return Answer(
-            response=f"No encontré evidencia directa para: {query}",
-            article=None,
-            chapter=None,
-            chapter_title=None,
-            evidence=""
-        )
-
-    top = results[0].snippet
-
-    article = extract_article(top, query=query)
-    chapter, chapter_title = extract_chapter(top)
-
-    summary = _make_summary_from_snippet(top, query)
-
-    # normalize weird split words/spaces from PDF extraction (on summary)
-    summary = re.sub(r"\s+", " ", summary)
-    summary = summary.replace("acc esos", "accesos")
-    summary = summary.replace("pre establecidos", "preestablecidos")
-
-    prefix = "Según el DS 024-2016-EM"
-    if chapter and chapter_title:
-        prefix += f" (Capítulo {chapter}: {chapter_title})"
-    if article:
-        prefix += f" (Artículo {article})"
-
-    response = f"{prefix}: {summary}"
-
-    return Answer(
-        response=response,
-        article=article,
-        chapter=chapter,
-        chapter_title=chapter_title,
-        evidence=top
-    )
+def format_unit(unit: Unit) -> str:
+    text = [citation(unit), amendment_note(unit), "", unit.text]
+    if unit.original_text:
+        text += ["", "Texto anterior a la modificación (solo como referencia):", unit.original_text]
+    return "\n".join(text)

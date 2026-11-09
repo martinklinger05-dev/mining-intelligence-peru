@@ -1,12 +1,13 @@
-# Virtual env
+# Entorno virtual
 .venv/
+venv/
 
-# Environment variables
+# Variables de entorno
 .env
 
-# PDFs / data files
-data/*.pdf
-
-# Python cache
+# Caché de Python
 __pycache__/
 *.pyc
+
+# Consultas, historial y documentos generados al usar el programa
+output/

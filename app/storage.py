@@ -1,33 +1,28 @@
+"""Historial de consultas y exportaciones de texto. Todo se guarda en output/ (no se versiona)."""
+from __future__ import annotations
+
 import json
-from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from app.regulation import ROOT
 
-HISTORY_PATH = Path("docs/history.jsonl")
-
-
-def ensure_docs_folder():
-    Path("docs").mkdir(parents=True, exist_ok=True)
+OUTPUT_DIR = ROOT / "output"
+HISTORY_PATH = OUTPUT_DIR / "history.jsonl"
 
 
-def append_history(record: dict[str, Any]):
-    ensure_docs_folder()
-    with HISTORY_PATH.open("a", encoding="utf-8") as f:
+def append_history(record: dict[str, Any], path: Path = HISTORY_PATH) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
-def read_last_history(n: int = 10) -> list[dict[str, Any]]:
-    if not HISTORY_PATH.exists():
+def read_last_history(n: int = 10, path: Path = HISTORY_PATH) -> list[dict[str, Any]]:
+    if not path.exists():
         return []
-
-    # leer últimas N líneas sin cargar todo gigante (simple y suficiente)
-    lines = HISTORY_PATH.read_text(encoding="utf-8").splitlines()
-    last = lines[-n:] if len(lines) > n else lines
-
     out = []
-    for line in last:
+    for line in path.read_text(encoding="utf-8").splitlines()[-n:]:
         try:
             out.append(json.loads(line))
         except json.JSONDecodeError:
@@ -35,35 +30,8 @@ def read_last_history(n: int = 10) -> list[dict[str, Any]]:
     return out
 
 
-def export_last_answer_to_txt(last_record: dict[str, Any]) -> str:
-    ensure_docs_folder()
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    out_path = Path("docs") / f"consulta_{ts}.txt"
-
-    q = last_record.get("question", "")
-    response = last_record.get("response", "")
-    chapter = last_record.get("chapter", "N/D")
-    chapter_title = last_record.get("chapter_title", "N/D")
-    article = last_record.get("article", "N/D")
-    evidence = last_record.get("evidence", "")
-
-    content = (
-        "MINING INTELLIGENCE PERU (MIP)\n"
-        f"Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-        "\n"
-        f"Pregunta:\n{q}\n"
-        "\n"
-        "Respuesta:\n"
-        f"{response}\n"
-        "\n"
-        "Cita:\n"
-        f"Capítulo: {chapter}\n"
-        f"Título: {chapter_title}\n"
-        f"Artículo: {article}\n"
-        "\n"
-        "Evidencia (snippet):\n"
-        f"{evidence}\n"
-    )
-
-    out_path.write_text(content, encoding="utf-8")
-    return str(out_path)
+def export_text(content: str, prefix: str, folder: Path = OUTPUT_DIR) -> Path:
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"{prefix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+    path.write_text(content, encoding="utf-8")
+    return path

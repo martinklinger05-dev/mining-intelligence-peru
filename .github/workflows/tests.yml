@@ -1,0 +1,27 @@
+name: Tests
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Instalar dependencias
+        run: python -m pip install -r requirements.txt
+      - name: Pruebas
+        run: python -m unittest discover -s tests -v
+      - name: Evaluación y consulta de ejemplo
+        run: |
+          python -m app.evaluate
+          python -m app.main "¿Qué es el IPERC?"
